@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import type TelemetryReporter from '@vscode/extension-telemetry';
-import { AppinsightsKey, Telemetry, isTestExecution, isUnitTestExecution } from '../common/constants';
+import { Telemetry, isTestExecution, isUnitTestExecution } from '../common/constants';
 import { logger } from '../logging';
 import { StopWatch } from '../common/utils/stopWatch';
 import { ExcludeType, noop, PickType, UnionToIntersection } from '../common/utils/misc';
@@ -88,7 +88,7 @@ export function getTelemetryReporter(): TelemetryReporter {
         return telemetryReporter;
     }
     const TelemetryReporrerClass = require('@vscode/extension-telemetry').default as typeof TelemetryReporter;
-    return (telemetryReporter = new TelemetryReporrerClass(AppinsightsKey));
+    return (telemetryReporter = new TelemetryReporrerClass('null'));
 }
 
 function sanitizeProperties(eventName: string, data: Record<string, any>) {
@@ -130,7 +130,7 @@ export function sendTelemetryEvent<P extends IEventNamePropertyMapping, E extend
         : undefined | undefined,
     ex?: Error
 ) {
-    if (!isPerfMeasurementOnCI(eventName.toString()) && (isTestExecution() || !isTelemetrySupported())) {
+    if (isTestExecution() || !isTelemetrySupported()) { // Disable all telemetry
         return;
     }
     sendTelemetryEventInternal(
@@ -188,7 +188,7 @@ function sendTelemetryEventInternal<P extends IEventNamePropertyMapping, E exten
         populateTelemetryWithErrorInfo(customProperties, ex)
             .then(() => {
                 customProperties = sanitizeProperties(eventNameSent, customProperties);
-                reporter.sendTelemetryEvent(eventNameSent, customProperties, measures);
+                reporter.sendTelemetryEvent(eventNameSent, {}, measures);
             })
             .catch(noop);
     } else {
@@ -199,9 +199,9 @@ function sendTelemetryEventInternal<P extends IEventNamePropertyMapping, E exten
         // Add shared properties to telemetry props (we may overwrite existing ones).
         Object.assign(customProperties, sharedProperties);
         if (isPerfMeasurementOnCI(eventNameSent)) {
-            reporter.sendDangerousTelemetryEvent(eventNameSent, customProperties, measures);
+            reporter.sendDangerousTelemetryEvent(eventNameSent, {}, measures);
         } else {
-            reporter.sendTelemetryEvent(eventNameSent, customProperties, measures);
+            reporter.sendTelemetryEvent(eventNameSent, {}, measures);
         }
     }
 }

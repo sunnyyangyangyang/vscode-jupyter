@@ -1,6 +1,6 @@
 {
-    "name": "jupyter",
-    "displayName": "Jupyter",
+    "name": "jupyter-no-telemetry",
+    "displayName": "Jupyter (No Telemetry)",
     "version": "2025.10.0",
     "description": "Jupyter notebook support, interactive programming and computing that supports Intellisense, debugging and more.",
     "publisher": "ms-toolsai",
