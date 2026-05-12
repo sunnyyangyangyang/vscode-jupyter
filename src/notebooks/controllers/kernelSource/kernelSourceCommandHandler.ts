@@ -3,7 +3,6 @@
 
 import { inject, injectable } from 'inversify';
 import {
-    CancellationTokenSource,
     commands,
     EventEmitter,
     NotebookControllerAffinity,
@@ -13,16 +12,12 @@ import {
     Uri,
     window
 } from 'vscode';
-import { DisplayOptions } from '../../../kernels/displayOptions';
-import { isPythonKernelConnection, isUserRegisteredKernelSpecConnection } from '../../../kernels/helpers';
-import { ContributedKernelFinderKind } from '../../../kernels/internalTypes';
+import { isUserRegisteredKernelSpecConnection } from '../../../kernels/helpers';
 import { IJupyterServerProviderRegistry } from '../../../kernels/jupyter/types';
 import { initializeInteractiveOrNotebookTelemetryBasedOnUserAction } from '../../../kernels/telemetry/helper';
 import { sendKernelTelemetryEvent } from '../../../kernels/telemetry/sendKernelTelemetryEvent';
 import {
-    IKernelDependencyService,
     IKernelFinder,
-    isLocalConnection,
     KernelConnectionMetadata
 } from '../../../kernels/types';
 import { IExtensionSyncActivationService } from '../../../platform/activation/types';
@@ -33,8 +28,8 @@ import {
     TestingKernelPickerProviderId,
     isWebExtension
 } from '../../../platform/common/constants';
-import { dispose } from '../../../platform/common/utils/lifecycle';
 import { IDisposable, IDisposableRegistry } from '../../../platform/common/types';
+import { dispose } from '../../../platform/common/utils/lifecycle';
 import { DataScience } from '../../../platform/common/utils/localize';
 import { noop } from '../../../platform/common/utils/misc';
 import { ServiceContainer } from '../../../platform/ioc/container';
@@ -43,12 +38,9 @@ import { INotebookEditorProvider } from '../../types';
 import {
     IControllerRegistration,
     ILocalNotebookKernelSourceSelector,
-    ILocalPythonNotebookKernelSourceSelector,
-    IRemoteNotebookKernelSourceSelector,
-    IVSCodeNotebookController
+    IRemoteNotebookKernelSourceSelector
 } from '../types';
 import { JupyterServerCollection } from '../../../api';
-import { isCondaEnvironmentWithoutPython } from '../../../platform/interpreter/helpers';
 import { onDidManuallySelectKernel } from '../../../kernels/telemetry/notebookTelemetry';
 
 @injectable()
@@ -63,7 +55,6 @@ export class KernelSourceCommandHandler implements IExtensionSyncActivationServi
         @inject(IControllerRegistration) private readonly controllerRegistration: IControllerRegistration,
         @inject(IKernelFinder) private readonly kernelFinder: IKernelFinder,
         @inject(INotebookEditorProvider) private readonly notebookEditorProvider: INotebookEditorProvider,
-        @inject(IKernelDependencyService) private readonly kernelDependency: IKernelDependencyService,
         @inject(IDisposableRegistry) disposables: IDisposableRegistry
     ) {
         disposables.push(this);
@@ -73,33 +64,6 @@ export class KernelSourceCommandHandler implements IExtensionSyncActivationServi
     }
     activate(): void {
         if (!isWebExtension()) {
-            this.localDisposables.push(
-                notebooks.registerKernelSourceActionProvider(JupyterNotebookView, {
-                    provideNotebookKernelSourceActions: () => {
-                        return [
-                            {
-                                label: DataScience.localPythonEnvironments,
-                                documentation: Uri.parse('https://aka.ms/vscodeJupyterExtKernelPickerPythonEnv'),
-                                command: 'jupyter.kernel.selectLocalPythonEnvironment'
-                            }
-                        ];
-                    }
-                })
-            );
-            this.localDisposables.push(
-                notebooks.registerKernelSourceActionProvider(InteractiveWindowView, {
-                    provideNotebookKernelSourceActions: () => {
-                        return [
-                            {
-                                label: DataScience.localPythonEnvironments,
-                                documentation: Uri.parse('https://aka.ms/vscodeJupyterExtKernelPickerPythonEnv'),
-                                command: 'jupyter.kernel.selectLocalPythonEnvironment'
-                            }
-                        ];
-                    }
-                })
-            );
-
             let kernelSpecActions: NotebookKernelSourceAction[] = [];
             const kernelSpecActionChangeEmitter = new EventEmitter<void>();
             this.localDisposables.push(
@@ -144,14 +108,7 @@ export class KernelSourceCommandHandler implements IExtensionSyncActivationServi
             this.localDisposables.push(
                 commands.registerCommand(
                     'jupyter.kernel.selectLocalKernelSpec',
-                    this.onSelectLocalKernel.bind(this, ContributedKernelFinderKind.LocalKernelSpec),
-                    this
-                )
-            );
-            this.localDisposables.push(
-                commands.registerCommand(
-                    'jupyter.kernel.selectLocalPythonEnvironment',
-                    this.onSelectLocalKernel.bind(this, ContributedKernelFinderKind.LocalPythonEnvironment),
+                    this.onSelectLocalKernel,
                     this
                 )
             );
@@ -226,27 +183,16 @@ export class KernelSourceCommandHandler implements IExtensionSyncActivationServi
             }
         });
     }
-    private async onSelectLocalKernel(
-        kind: ContributedKernelFinderKind.LocalKernelSpec | ContributedKernelFinderKind.LocalPythonEnvironment,
-        notebook?: NotebookDocument
-    ) {
+    private async onSelectLocalKernel(notebook?: NotebookDocument) {
         notebook = notebook || window.activeNotebookEditor?.notebook;
         if (!notebook) {
             return;
         }
-        if (kind === ContributedKernelFinderKind.LocalPythonEnvironment) {
-            const selector = ServiceContainer.instance.get<ILocalPythonNotebookKernelSourceSelector>(
-                ILocalPythonNotebookKernelSourceSelector
-            );
-            const kernel = await selector.selectLocalKernel(notebook);
-            return this.getSelectedController(notebook, kernel);
-        } else {
-            const selector = ServiceContainer.instance.get<ILocalNotebookKernelSourceSelector>(
-                ILocalNotebookKernelSourceSelector
-            );
-            const kernel = await selector.selectLocalKernel(notebook);
-            return this.getSelectedController(notebook, kernel);
-        }
+        const selector = ServiceContainer.instance.get<ILocalNotebookKernelSourceSelector>(
+            ILocalNotebookKernelSourceSelector
+        );
+        const kernel = await selector.selectLocalKernel(notebook);
+        return this.getSelectedController(notebook, kernel);
     }
     private async onSelectRemoteKernel(extensionId: string, providerId: string, notebook?: NotebookDocument) {
         notebook = notebook || window.activeNotebookEditor?.notebook;
@@ -289,37 +235,10 @@ export class KernelSourceCommandHandler implements IExtensionSyncActivationServi
             ?.controller.updateNotebookAffinity(notebook, NotebookControllerAffinity.Preferred);
 
         const controller = controllers[0];
-        await this.onControllerSelected(notebook, controller);
+        await this.onControllerSelected(notebook);
         return controller.controller.id;
     }
-    private async onControllerSelected(notebook: NotebookDocument, controller: IVSCodeNotebookController) {
+    private async onControllerSelected(notebook: NotebookDocument) {
         onDidManuallySelectKernel(notebook);
-        if (
-            isLocalConnection(controller.connection) &&
-            isPythonKernelConnection(controller.connection) &&
-            isCondaEnvironmentWithoutPython(controller.connection.interpreter) &&
-            !isWebExtension()
-        ) {
-            const disposables: IDisposable[] = [];
-            try {
-                const token = new CancellationTokenSource();
-                disposables.push(token);
-                const ui = new DisplayOptions(false);
-                disposables.push(ui);
-                await this.kernelDependency.installMissingDependencies({
-                    resource: notebook.uri,
-                    kernelConnection: controller.connection,
-                    token: token.token,
-                    ui,
-                    cannotChangeKernels: true,
-                    ignoreCache: true,
-                    installWithoutPrompting: true
-                });
-            } catch (ex) {
-                logger.error(`Failed to install missing dependencies for Conda kernel ${controller.connection.id}`, ex);
-            } finally {
-                dispose(disposables);
-            }
-        }
     }
 }

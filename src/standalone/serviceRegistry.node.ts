@@ -15,11 +15,9 @@ import { JupyterKernelServiceFactory } from './api/unstable/kernelApi';
 import { ApiAccessService } from './api/unstable/apiAccessService';
 import { WorkspaceActivation } from './activation/workspaceActivation.node';
 import { ExtensionActivationManager } from './activation/activationManager';
-import { DataScienceSurveyBanner, ISurveyBanner } from './survey/dataScienceSurveyBanner.node';
 import { IExtensionContext } from '../platform/common/types';
 import { registerTypes as registerDevToolTypes } from './devTools/serviceRegistry';
 import { registerTypes as registerIntellisenseTypes } from './intellisense/serviceRegistry.node';
-import { PythonExtensionRestartNotification } from './notification/pythonExtensionRestartNotification';
 import { UserJupyterServerUrlProvider } from './userJupyterServer/userServerUrlProvider';
 import { JupyterServerSelectorCommand } from './userJupyterServer/serverSelectorForTests';
 import { CommandRegistry as CodespaceCommandRegistry } from './codespace/commandRegistry';
@@ -32,7 +30,6 @@ import { IJupyterVariables, IJupyterVariablesProvider, IKernelVariableRequester 
 import { KernelVariables } from './variables/kernelVariables';
 import { Identifiers } from '../platform/common/constants';
 import { PythonVariablesRequester } from './variables/pythonVariableRequester';
-import { PreWarmActivatedJupyterEnvironmentVariables } from './variables/preWarmVariables.node';
 
 export function registerTypes(context: IExtensionContext, serviceManager: IServiceManager, isDevMode: boolean) {
     serviceManager.addSingleton<IExtensionSyncActivationService>(IExtensionSyncActivationService, GlobalActivation);
@@ -68,9 +65,7 @@ export function registerTypes(context: IExtensionContext, serviceManager: IServi
         CodespaceCommandRegistry
     );
 
-    serviceManager.addSingleton<ISurveyBanner>(ISurveyBanner, DataScienceSurveyBanner);
-    serviceManager.addBinding(ISurveyBanner, IExtensionSyncActivationService);
-    // Activation Manager
+       // Activation Manager
     serviceManager.add<IExtensionActivationManager>(IExtensionActivationManager, ExtensionActivationManager);
 
     // API
@@ -79,12 +74,6 @@ export function registerTypes(context: IExtensionContext, serviceManager: IServi
         JupyterKernelServiceFactory
     );
     serviceManager.addSingleton<ApiAccessService>(ApiAccessService, ApiAccessService);
-
-    // Notification
-    serviceManager.addSingleton<IExtensionSyncActivationService>(
-        IExtensionSyncActivationService,
-        PythonExtensionRestartNotification
-    );
 
     // Intellisense
     registerIntellisenseTypes(serviceManager);
@@ -111,9 +100,5 @@ export function registerTypes(context: IExtensionContext, serviceManager: IServi
         IKernelVariableRequester,
         PythonVariablesRequester,
         Identifiers.PYTHON_VARIABLES_REQUESTER
-    );
-    serviceManager.addSingleton<IExtensionSyncActivationService>(
-        IExtensionSyncActivationService,
-        PreWarmActivatedJupyterEnvironmentVariables
     );
 }

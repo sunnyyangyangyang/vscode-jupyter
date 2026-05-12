@@ -2,10 +2,8 @@
 // Licensed under the MIT License.
 
 import { IExtensionSyncActivationService } from '../platform/activation/types';
-import { IPythonExtensionChecker } from '../platform/api/types';
-import { Identifiers, isPreReleaseVersion } from '../platform/common/constants';
+import { Identifiers } from '../platform/common/constants';
 import { IServiceManager } from '../platform/ioc/types';
-import { setSharedProperty } from '../telemetry';
 import { Activation } from './jupyter/interpreter/activation.node';
 import { CellOutputDisplayIdTracker } from './execution/cellDisplayIdTracker';
 import { PreferredRemoteKernelIdProvider } from './jupyter/connection/preferredRemoteKernelIdProvider';
@@ -22,10 +20,7 @@ import { KernelRefreshIndicator } from './kernelRefreshIndicator.node';
 import { KernelStartupCodeProviders } from './kernelStartupCodeProviders.node';
 import { KernelStartupTelemetry } from './kernelStartupTelemetry.node';
 import { IKernelStatusProvider, KernelStatusProvider } from './kernelStatusProvider';
-import { ContributedLocalKernelSpecFinder } from './raw/finder/contributedLocalKernelSpecFinder.node';
 import { JupyterPaths } from './raw/finder/jupyterPaths.node';
-import { LocalKnownPathKernelSpecFinder } from './raw/finder/localKnownPathKernelSpecFinder.node';
-import { LocalPythonAndRelatedNonPythonKernelSpecFinder } from './raw/finder/localPythonAndRelatedNonPythonKernelSpecFinder.node';
 import { PythonKernelInterruptDaemon } from './raw/finder/pythonKernelInterruptDaemon.node';
 import { TrustedKernelPaths } from './raw/finder/trustedKernelPaths.node';
 import { ITrustedKernelPaths } from './raw/finder/types';
@@ -69,26 +64,11 @@ export function registerTypes(serviceManager: IServiceManager, isDevMode: boolea
     serviceManager.addSingleton<IKernelFinder>(IKernelFinder, KernelFinder);
     serviceManager.addSingleton<IExtensionSyncActivationService>(
         IExtensionSyncActivationService,
-        ContributedLocalKernelSpecFinder
-    );
-    serviceManager.addSingleton<IExtensionSyncActivationService>(
-        IExtensionSyncActivationService,
         RemoteJupyterServerMruUpdate
     );
 
     serviceManager.addSingleton<JupyterPaths>(JupyterPaths, JupyterPaths);
     serviceManager.addSingleton<ITrustedKernelPaths>(ITrustedKernelPaths, TrustedKernelPaths);
-    serviceManager.addSingleton<LocalKnownPathKernelSpecFinder>(
-        LocalKnownPathKernelSpecFinder,
-        LocalKnownPathKernelSpecFinder
-    );
-    serviceManager.addBinding(LocalKnownPathKernelSpecFinder, IExtensionSyncActivationService);
-
-    serviceManager.addSingleton<LocalPythonAndRelatedNonPythonKernelSpecFinder>(
-        LocalPythonAndRelatedNonPythonKernelSpecFinder,
-        LocalPythonAndRelatedNonPythonKernelSpecFinder
-    );
-
     serviceManager.addSingleton<IKernelStatusProvider>(IKernelStatusProvider, KernelStatusProvider);
     serviceManager.addBinding(IKernelStatusProvider, IExtensionSyncActivationService);
     serviceManager.addSingleton<IJupyterVariables>(IJupyterVariables, JupyterVariables, Identifiers.ALL_VARIABLES);
@@ -123,15 +103,6 @@ export function registerTypes(serviceManager: IServiceManager, isDevMode: boolea
 
     // Subdirectories
     registerJupyterTypes(serviceManager, isDevMode);
-    setSharedProperty('isInsiderExtension', isPreReleaseVersion() ? 'true' : 'false');
-
-    const isPythonExtensionInstalled = serviceManager.get<IPythonExtensionChecker>(IPythonExtensionChecker);
-    setSharedProperty(
-        'isPythonExtensionInstalled',
-        isPythonExtensionInstalled.isPythonExtensionInstalled ? 'true' : 'false'
-    );
-    const rawService = serviceManager.get<IRawNotebookSupportedService>(IRawNotebookSupportedService);
-    setSharedProperty('rawKernelSupported', rawService.isSupported ? 'true' : 'false');
     serviceManager.addSingleton<IExtensionSyncActivationService>(
         IExtensionSyncActivationService,
         CellOutputDisplayIdTracker

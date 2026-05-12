@@ -20,7 +20,6 @@ import {
     JUPYTER_OUTPUT_CHANNEL,
     PylanceExtension,
     PythonExtension,
-    Telemetry,
     PythonEnvironmentExtension
 } from './platform/common/constants';
 import { getDisplayPath } from './platform/common/platform/fs-paths';
@@ -40,9 +39,6 @@ import { initializeLoggers as init, logger } from './platform/logging';
 import { getJupyterOutputChannel } from './standalone/devTools/jupyterOutputChannel';
 import { isUsingPylance } from './standalone/intellisense/notebookPythonPathService';
 import { noop } from './platform/common/utils/misc';
-import { sendErrorTelemetry } from './platform/telemetry/startupTelemetry';
-import { StopWatch } from './platform/common/utils/stopWatch';
-import { sendTelemetryEvent } from './telemetry';
 import { IExtensionActivationManager } from './platform/activation/types';
 import { getVSCodeChannel } from './platform/common/application/applicationEnvironment';
 import { getExtensionTempDir } from './platform/common/temp';
@@ -133,22 +129,20 @@ export function initializeGlobals(
 
 export function handleError(
     ex: Error,
-    startupDurations: {
+    _startupDurations: {
         totalActivateTime: number;
         codeLoadingTime: number;
         startActivateTime: number;
         endActivateTime: number;
         workspaceFolderCount: number;
     },
-    stopWatch: {
+    _stopWatch: {
         elapsedTime: number;
     }
 ) {
     notifyUser(Common.handleExtensionActivationError);
-    // Possible logger hasn't initialized either.
     console.error('extension activation failed', ex);
     logger.error('extension activation failed', ex);
-    sendErrorTelemetry(ex, startupDurations, stopWatch);
 }
 
 function notifyUser(msg: string) {
@@ -160,19 +154,11 @@ function notifyUser(msg: string) {
 }
 
 export async function postActivateLegacy(context: IExtensionContext, serviceContainer: IServiceContainer) {
-    // Load the two data science experiments that we need to register types
-    // Await here to keep the register method sync
     const experimentService = serviceContainer.get<IExperimentService>(IExperimentService);
-    // This must be done first, this guarantees all experiment information has loaded & all telemetry will contain experiment info.
-    const stopWatch = new StopWatch();
     await experimentService.activate();
-    const duration = stopWatch.elapsedTime;
-    sendTelemetryEvent(Telemetry.ExperimentLoad, { duration });
 
-    // "initialize" "services"
     commands.executeCommand('setContext', 'jupyter.vscode.channel', getVSCodeChannel()).then(noop, noop);
 
-    // "activate" everything else
     serviceContainer.get<IExtensionActivationManager>(IExtensionActivationManager).activate();
     const featureManager = serviceContainer.get<IFeaturesManager>(IFeaturesManager);
     featureManager.initialize();

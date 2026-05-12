@@ -2,11 +2,9 @@
 // Licensed under the MIT License.
 
 import { IExtensionSyncActivationService } from '../platform/activation/types';
-import { IPythonExtensionChecker } from '../platform/api/types';
-import { Identifiers, isPreReleaseVersion } from '../platform/common/constants';
+import { Identifiers } from '../platform/common/constants';
 
 import { IServiceManager } from '../platform/ioc/types';
-import { setSharedProperty } from '../telemetry';
 import { IRawNotebookSupportedService } from './raw/types';
 import { KernelCrashMonitor } from './kernelCrashMonitor';
 import { registerTypes as registerJupyterTypes } from './jupyter/serviceRegistry.web';
@@ -46,15 +44,6 @@ export function registerTypes(serviceManager: IServiceManager, isDevMode: boolea
         IRawNotebookSupportedService,
         RawNotebookSupportedService
     );
-    setSharedProperty('isInsiderExtension', isPreReleaseVersion() ? 'true' : 'false');
-
-    const isPythonExtensionInstalled = serviceManager.get<IPythonExtensionChecker>(IPythonExtensionChecker);
-    setSharedProperty(
-        'isPythonExtensionInstalled',
-        isPythonExtensionInstalled.isPythonExtensionInstalled ? 'true' : 'false'
-    );
-    const rawService = serviceManager.get<IRawNotebookSupportedService>(IRawNotebookSupportedService);
-    setSharedProperty('rawKernelSupported', rawService.isSupported ? 'true' : 'false');
     serviceManager.addSingleton<IStartupCodeProviders>(IStartupCodeProviders, KernelStartupCodeProviders);
     serviceManager.addSingleton<IJupyterVariables>(IJupyterVariables, JupyterVariables, Identifiers.ALL_VARIABLES);
 

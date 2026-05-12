@@ -40,7 +40,6 @@ import { buildApi, IExtensionApi } from './standalone/api';
 import { logger, setHomeDirectory } from './platform/logging';
 import { IAsyncDisposableRegistry, IExtensionContext, IsDevMode } from './platform/common/types';
 import { IServiceContainer, IServiceManager } from './platform/ioc/types';
-import { sendStartupTelemetry } from './platform/telemetry/startupTelemetry';
 import { noop } from './platform/common/utils/misc';
 import { registerTypes as registerPlatformTypes } from './platform/serviceRegistry.node';
 import { registerTypes as registerKernelTypes } from './kernels/serviceRegistry.node';
@@ -49,8 +48,6 @@ import { registerTypes as registerInteractiveTypes } from './interactive-window/
 import { registerTypes as registerStandaloneTypes } from './standalone/serviceRegistry.node';
 import { registerTypes as registerWebviewTypes } from './webviews/extension-side/serviceRegistry.node';
 import { Exiting, isTestExecution, setIsCodeSpace, setIsWebExtension } from './platform/common/constants';
-import { initializeGlobals as initializeTelemetryGlobals } from './platform/telemetry/telemetry';
-import { IInterpreterPackages } from './platform/interpreter/types';
 import { homedir, platform, arch, userInfo } from 'os';
 import { getUserHomeDir } from './platform/common/utils/platform.node';
 import { homePath } from './platform/common/platform/fs-paths.node';
@@ -94,16 +91,9 @@ export async function activate(context: IExtensionContext): Promise<IExtensionAp
     try {
         const [api, ready] = activateUnsafe(context, standardOutputChannel);
         await ready;
-        // Send the "success" telemetry only if activation did not fail.
-        // Otherwise Telemetry is send via the error handler.
-        durations.endActivateTime = stopWatch.elapsedTime;
-        sendStartupTelemetry(durations, stopWatch);
         deleteOldTempDirs(context).catch(noop);
         return api;
     } catch (ex) {
-        // We want to completely handle the error
-        // before notifying VS Code.
-        durations.endActivateTime = stopWatch.elapsedTime;
         handleError(ex, durations, stopWatch);
         logger.error('Failed to active the Jupyter Extension', ex);
         // Disable this, as we don't want Python extension or any other extensions that depend on this to fall over.
@@ -157,9 +147,6 @@ function activateUnsafe(
 
     const [serviceManager, serviceContainer] = initializeGlobals(context, standardOutputChannel);
     activatedServiceContainer = serviceContainer;
-    initializeTelemetryGlobals((interpreter) =>
-        serviceContainer.get<IInterpreterPackages>(IInterpreterPackages).getPackageVersions(interpreter)
-    );
     const activationPromise = activateLegacy(context, serviceManager, serviceContainer);
 
     //===============================================
