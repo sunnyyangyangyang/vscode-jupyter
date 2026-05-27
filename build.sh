@@ -12,10 +12,6 @@ if [ "$STATUS" = "exited" ] || [ "$STATUS" = "stopped" ]; then
     podman start "$CONTAINER"
 fi
 
-echo "=== Step 1: Git pull ==="
-cd "$SRC_DIR"
-git pull origin main || true
-
 # Sync all source files to container (keep node_modules intact)
 rsync -a --delete \
     --exclude='node_modules/' \
