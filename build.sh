@@ -20,11 +20,19 @@ rsync -a --delete \
     --exclude='*.vsix' \
     "$SRC_DIR/" "$BUILD_DIR/"
 
-# Check if dependencies are valid, reinstall if needed
-if ! podman exec "$CONTAINER" test -f "$BUILD_DIR/node_modules/@types/vscode/index.d.ts"; then
-    echo "Dependencies missing or corrupted, running npm install..."
+# Check if dependencies are installed and up-to-date
+LOCK_HASH=$(podman exec "$CONTAINER" sha256sum "$BUILD_DIR/package-lock.json" | cut -d' ' -f1)
+CACHE_FILE="$BUILD_DIR/node_modules/.dep-cache"
+INSTALLED_HASH=$(podman exec "$CONTAINER" cat "$CACHE_FILE" 2>/dev/null || echo "")
+if [ "$LOCK_HASH" != "$INSTALLED_HASH" ]; then
+    echo "Dependencies outdated (lockfile changed), running npm install..."
     podman exec "$CONTAINER" sh -c "cd $BUILD_DIR && npm install --include=dev 2>&1 | tail -3"
+    podman exec "$CONTAINER" sh -c "sha256sum $BUILD_DIR/package-lock.json | cut -d' ' -f1 > $CACHE_FILE"
+else
+    echo "Dependencies up-to-date, skipping npm install."
 fi
+
+
 
 echo "=== Step 2: Add build suffix ==="
 BUILD_SUFFIX=$(date +'%y%m%d')
