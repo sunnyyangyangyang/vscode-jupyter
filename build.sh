@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-BUILD_DIR="/home/sunny/Documents/jupyter-build-home/vscode-jupyter"
-SRC_DIR="/home/sunny/Documents/vscode-jupyter"
+BUILD_DIR="/home/sunny/Documents/jupyter-build-home/vscodium-jupyter"
+SRC_DIR="/home/sunny/Documents/vscodium-jupyter"
 CONTAINER="jupyter-build"
 TSC="$BUILD_DIR/node_modules/.bin/tsc"
 
