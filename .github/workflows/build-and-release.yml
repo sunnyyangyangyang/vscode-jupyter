@@ -1,0 +1,84 @@
+# Auto-build vscodium-jupyter on version bump and publish to GitHub Releases
+name: Build & Release Vscodium Jupyter
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'package.json'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if version changed (skip build suffix versions)
+        id: check-version
+        run: |
+          # Skip if this is a local build-suffix version (ends with -bYYYYMMDD)
+          VERSION="${{ steps.version.outputs.version }}"
+          if [[ "$VERSION" =~ -b[0-9]{6}$ ]]; then
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping release for build-suffix version: $VERSION"
+          else
+            echo "skipped=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        if: steps.check-version.outputs.skipped == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.check-version.outputs.skipped == 'false'
+        run: npm install --include=dev
+
+      - name: TypeScript compile
+        if: steps.check-version.outputs.skipped == 'false'
+        run: npx tsc -p ./
+
+      - name: esbuild (production bundle)
+        if: steps.check-version.outputs.skipped == 'false'
+        run: npx tsx build/esbuild/build.ts --production
+
+      - name: Package vsix
+        if: steps.check-version.outputs.skipped == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VSIX_NAME="vscodium-jupyter-${VERSION}.vsix"
+          npx vsce package -o "$VSIX_NAME"
+          echo "vsix_name=$VSIX_NAME" >> "$GITHUB_OUTPUT"
+        id: package
+
+      - name: Delete existing tag and release if version already released
+        if: steps.check-version.outputs.skipped == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git tag --force "v${VERSION}"
+          gh release delete "v${VERSION}" --cleanup-tag --yes 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        if: steps.check-version.outputs.skipped == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: "Vscodium Jupyter ${{ steps.version.outputs.version }}"
+          target_commitish: main
+          generate_release_notes: true
+          files: ${{ steps.package.outputs.vsix_name }}
