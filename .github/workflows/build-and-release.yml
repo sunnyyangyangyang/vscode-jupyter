@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build-and-release:
+    environment: OVSX_PAT
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -67,6 +68,9 @@ jobs:
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "vsix_name=$VSIX_NAME" >> "$GITHUB_OUTPUT"
           echo "::notice::Building vscodium-jupyter $FULL_VERSION -> $VSIX_NAME (tag: $TAG_NAME)"
+
+      - name: Publish to OpenVSX
+        run: npx ovsx publish -p ${{ secrets.OVSX_PAT }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
