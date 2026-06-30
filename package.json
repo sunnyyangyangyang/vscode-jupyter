@@ -1,8 +1,8 @@
 {
-  "name": "jupyter",
-  "displayName": "Jupyter",
+  "name": "vscodium-jupyter",
+  "displayName": "Vscodium Jupyter",
   "version": "2026.6.1",
-  "description": "Jupyter notebook support, interactive programming and computing that supports Intellisense, debugging and more.",
+  "description": "Jupyter notebook support for VSCodium — a clean fork without telemetry and Azure dependencies.",
   "publisher": "sunnyyangyangyang",
   "author": {
     "name": "Jupyter Community"
@@ -14,13 +14,13 @@
     "ms-toolsai.vscode-jupyter-slideshow"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/Microsoft/vscode-jupyter",
+  "homepage": "https://github.com/sunnyyangyangyang/vscodium-jupyter",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Microsoft/vscode-jupyter"
+    "url": "https://github.com/sunnyyangyangyang/vscodium-jupyter"
   },
   "bugs": {
-    "url": "https://github.com/Microsoft/vscode-jupyter/issues"
+    "url": "https://github.com/sunnyyangyangyang/vscodium-jupyter/issues"
   },
   "icon": "icon.png",
   "galleryBanner": {
