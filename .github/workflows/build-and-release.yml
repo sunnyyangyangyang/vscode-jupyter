@@ -34,7 +34,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.cache-modules.outputs.cache-hit != 'true'
-        run: npm ci --include=dev --foreground-scripts
+        run: npm ci --include=dev --omit=optional --foreground-scripts
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
 
