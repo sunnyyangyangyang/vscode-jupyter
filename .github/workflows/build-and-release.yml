@@ -57,10 +57,14 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           BUILD_SUFFIX=$(date +'%y%m%d')
+          RUN_ID=${GITHUB_RUN_NUMBER}
           SHORT_SHA=$(git rev-parse --short HEAD)
-          FULL_VERSION="${VERSION}-b${BUILD_SUFFIX}"
+          FULL_VERSION="${VERSION}-b${BUILD_SUFFIX}-${RUN_ID}"
           VSIX_NAME="vscodium-jupyter-${FULL_VERSION}.vsix"
           TAG_NAME="build-${BUILD_SUFFIX}-${SHORT_SHA}"
+
+          # Stamp the unique build version into package.json so every publish gets a fresh OpenVSX version
+          sed -i "s/\"version\": \"${VERSION}\"/\"version\": \"${FULL_VERSION}\"/" package.json
 
           npx vsce package -o "$VSIX_NAME"
 
@@ -70,7 +74,7 @@ jobs:
           echo "::notice::Building vscodium-jupyter $FULL_VERSION -> $VSIX_NAME (tag: $TAG_NAME)"
 
       - name: Publish to OpenVSX
-        run: npx ovsx publish -p ${{ secrets.OVSX_PAT }}
+        run: npx ovsx publish "${{ steps.package.outputs.vsix_name }}" -p ${{ secrets.OVSX_PAT }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
