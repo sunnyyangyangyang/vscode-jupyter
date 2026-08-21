@@ -4,9 +4,8 @@
 /* eslint-disable , , @typescript-eslint/no-explicit-any */
 import * as sinon from 'sinon';
 import { expect } from 'chai';
-import { instance, mock, reset, verify, when } from 'ts-mockito';
+import { instance, mock, reset, when } from 'ts-mockito';
 import { Disposable, WorkspaceConfiguration } from 'vscode';
-import { EXTENSION_ROOT_DIR } from '../constants.node';
 import {
     _resetSharedProperties,
     getTelemetryReporter,
@@ -16,7 +15,6 @@ import {
 } from '../../telemetry';
 import { isUnitTestExecution, isTestExecution, setTestExecution, setUnitTestExecution } from '../common/constants';
 import { sleep } from '../../test/core';
-import { waitForCondition } from '../../test/common';
 import { mockedVSCodeNamespaces, resetVSCodeMocks } from '../../test/vscode-mock';
 import { IDisposable } from '../common/types';
 import { dispose } from '../common/utils/lifecycle';
@@ -38,25 +36,8 @@ suite('Telemetry', () => {
         }
     }
 
-    async function asyncAssertReporterState(
-        expectedEventName: string[],
-        expectedMeasures: any[],
-        expectedProperties: Record<string, string>[]
-    ): Promise<void> {
-        await waitForCondition(
-            async () => {
-                expect(Reporter.eventName).to.deep.equal(expectedEventName);
-                expect(Reporter.measures).to.deep.equal(expectedMeasures);
-                expect(Reporter.properties).to.deep.equal(expectedProperties);
-                return true;
-            },
-            1_000,
-            'Unexpected reporter state'
-        );
-        expect(Reporter.eventName).to.deep.equal(expectedEventName);
-        expect(Reporter.measures).to.deep.equal(expectedMeasures);
-        expect(Reporter.properties).to.deep.equal(expectedProperties);
-    }
+    // Fork note: the upstream asyncAssertReporterState helper was removed — with telemetry
+    // stripped from this fork, tests assert that NO events ever reach a reporter instead.
     let disposables: IDisposable[] = [];
     setup(() => {
         resetVSCodeMocks();
@@ -80,6 +61,8 @@ suite('Telemetry', () => {
         _resetSharedProperties();
     });
 
+    // Fork note: telemetry was removed in this fork, so isTelemetryDisabled() unconditionally
+    // returns true regardless of user settings.
     const testsForisTelemetryDisabled = [
         {
             testName: 'Returns true when globalValue is set to false',
@@ -87,9 +70,9 @@ suite('Telemetry', () => {
             expectedResult: true
         },
         {
-            testName: 'Returns false otherwise',
+            testName: 'Returns true even when telemetry is not explicitly disabled (fork)',
             settings: {},
-            expectedResult: false
+            expectedResult: true
         }
     ];
 
@@ -103,9 +86,8 @@ suite('Telemetry', () => {
                 );
                 when(workspaceConfig.inspect<string>('enableTelemetry')).thenReturn(testParams.settings as any);
 
+                // Fork note: user settings are no longer consulted (always disabled).
                 expect(isTelemetryDisabled()).to.equal(testParams.expectedResult);
-
-                verify(mockedVSCodeNamespaces.workspace.getConfiguration('telemetry')).once();
             });
         });
     });
@@ -118,40 +100,44 @@ suite('Telemetry', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sendTelemetryEvent(eventName as any, measures, properties as any);
 
-        await asyncAssertReporterState([eventName], [measures], [properties]);
+        // Fork note: telemetry was removed — sending must be a safe no-op that never reaches any reporter.
+        await sleep(1);
+        expect(Reporter.eventName).to.deep.equal([]);
     });
     test('Send Telemetry with no properties', async () => {
         const eventName = 'Testing';
 
         sendTelemetryEvent(eventName as any);
 
-        await asyncAssertReporterState([eventName], [undefined], [{}]);
+        // Fork note: telemetry was removed — sending must be a safe no-op.
+        await sleep(1);
+        expect(Reporter.eventName).to.deep.equal([]);
     });
     test('Send Telemetry with shared properties', async () => {
         const eventName = 'Testing';
         const properties = { hello: 'world', foo: 'bar' };
         const measures = { start: 123, end: 987 };
-        const expectedProperties = { ...properties, one: 'two' };
-
         setSharedProperty('one' as any, 'two' as any);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sendTelemetryEvent(eventName as any, measures, properties as any);
 
-        await asyncAssertReporterState([eventName], [measures], [expectedProperties]);
+        // Fork note: telemetry was removed — shared properties are ignored and nothing is sent.
+        await sleep(1);
+        expect(Reporter.eventName).to.deep.equal([]);
     });
     test('Shared properties will replace existing ones', async () => {
         const eventName = 'Testing';
         const properties = { hello: 'world', foo: 'bar' };
         const measures = { start: 123, end: 987 };
-        const expectedProperties = { ...properties, foo: 'baz' };
-
         setSharedProperty('foo' as any, 'baz' as any);
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sendTelemetryEvent(eventName as any, measures, properties as any);
 
-        await asyncAssertReporterState([eventName], [measures], [expectedProperties]);
+        // Fork note: telemetry was removed — shared properties are ignored and nothing is sent.
+        await sleep(1);
+        expect(Reporter.eventName).to.deep.equal([]);
     });
     test('Send Error Telemetry', async () => {
         const error = new Error('Boo');
@@ -163,43 +149,14 @@ suite('Telemetry', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sendTelemetryEvent(eventName as any, measures, properties as any, error);
         await sleep(1);
-        const expectedErrorProperties = {
-            failed: 'true',
-            failureCategory: 'unknown',
-            failureSubCategory: '',
-            hello: 'world',
-            foo: 'bar'
-        };
 
-        expect(Reporter.eventName).to.deep.equal([eventName]);
-        expect(Reporter.measures).to.deep.equal([measures]);
-        expect(Reporter.properties[0].stackTrace).to.be.length.greaterThan(1);
-        delete Reporter.properties[0].stackTrace;
-        expect(Reporter.properties).to.deep.equal([expectedErrorProperties]);
+        // Fork note: telemetry was removed — error reporting must be a safe no-op.
+        expect(Reporter.eventName).to.deep.equal([]);
     });
-    test('Send Error Telemetry with stack trace', async () => {
+test('Send Error Telemetry with stack trace', async () => {
+        // Fork note: the upstream stack-trace sanitization assertions are not applicable —
+        // telemetry was removed in this fork, so error reporting is a safe no-op.
         const error = new Error('Boo');
-        const root = EXTENSION_ROOT_DIR.replace(/\\/g, '/');
-        error.stack = [
-            'Error: Boo',
-            `at Context.test (${root}/src/test/telemetry/index.unit.test.ts:50:23)`,
-            `at callFn (${root}/node_modules/mocha/lib/runnable.js:372:21)`,
-            `at Test.Runnable.run (${root}/node_modules/mocha/lib/runnable.js:364:7)`,
-            `at Runner.runTest (${root}/node_modules/mocha/lib/runner.js:455:10)`,
-            `at ${root}/node_modules/mocha/lib/runner.js:573:12`,
-            `at next (${root}/node_modules/mocha/lib/runner.js:369:14)`,
-            `at ${root}/node_modules/mocha/lib/runner.js:379:7`,
-            `at next (${root}/node_modules/mocha/lib/runner.js:303:14)`,
-            `at ${root}/node_modules/mocha/lib/runner.js:342:7`,
-            `at done (${root}/node_modules/mocha/lib/runnable.js:319:5)`,
-            `at callFn (${root}/node_modules/mocha/lib/runnable.js:395:7)`,
-            `at Hook.Runnable.run (${root}/node_modules/mocha/lib/runnable.js:364:7)`,
-            `at next (${root}/node_modules/mocha/lib/runner.js:317:10)`,
-            `at Immediate.<anonymous> (${root}/node_modules/mocha/lib/runner.js:347:5)`,
-            'at runCallback (timers.js:789:20)',
-            'at tryOnImmediate (timers.js:751:5)',
-            'at processImmediate [as _immediateCallback] (timers.js:722:5)'
-        ].join('\n\t');
 
         const eventName = 'Testing';
         const properties = { hello: 'world', foo: 'bar' };
@@ -208,42 +165,7 @@ suite('Telemetry', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         sendTelemetryEvent(eventName as any, measures, properties as any, error);
         await sleep(1);
-        const expectedErrorProperties = {
-            failed: 'true',
-            failureCategory: 'unknown',
-            failureSubCategory: '',
-            hello: 'world',
-            foo: 'bar'
-        };
 
-        const stackTrace = Reporter.properties[0].stackTrace;
-        delete Reporter.properties[0].stackTrace;
-
-        expect(Reporter.eventName).to.deep.equal([eventName]);
-        expect(Reporter.measures).to.deep.equal([measures]);
-        expect(Reporter.properties).to.deep.equal([expectedErrorProperties]);
-        expect(stackTrace).to.be.length.greaterThan(1);
-
-        const expectedStack = [
-            `at Context.test ${root}/src/test/telemetry/index.unit.test.ts:50:23`,
-            `at callFn ${root}/node_modules/mocha/lib/runnable.js:372:21`,
-            `at Test.Runnable.run ${root}/node_modules/mocha/lib/runnable.js:364:7`,
-            `at Runner.runTest ${root}/node_modules/mocha/lib/runner.js:455:10`,
-            `at  ${root}/node_modules/mocha/lib/runner.js:573:12`,
-            `at next ${root}/node_modules/mocha/lib/runner.js:369:14`,
-            `at  ${root}/node_modules/mocha/lib/runner.js:379:7`,
-            `at next ${root}/node_modules/mocha/lib/runner.js:303:14`,
-            `at  ${root}/node_modules/mocha/lib/runner.js:342:7`,
-            `at done ${root}/node_modules/mocha/lib/runnable.js:319:5`,
-            `at callFn ${root}/node_modules/mocha/lib/runnable.js:395:7`,
-            `at Hook.Runnable.run ${root}/node_modules/mocha/lib/runnable.js:364:7`,
-            `at next ${root}/node_modules/mocha/lib/runner.js:317:10`,
-            `at Immediate ${root}/node_modules/mocha/lib/runner.js:347:5`,
-            'at runCallback timers.js:789:20',
-            'at tryOnImmediate timers.js:751:5',
-            'at processImmediate [as _immediateCallback] timers.js:722:5'
-        ].join('\n\t');
-
-        expect(stackTrace).to.be.equal(expectedStack);
+        expect(Reporter.eventName).to.deep.equal([]);
     });
 });

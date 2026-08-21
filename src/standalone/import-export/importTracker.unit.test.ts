@@ -22,6 +22,7 @@ import { EventName } from '../../platform/telemetry/constants';
 import { getTelemetrySafeHashedString } from '../../platform/telemetry/helpers';
 import { ImportTracker } from './importTracker';
 import { ResourceTypeTelemetryProperty, getTelemetryReporter } from '../../telemetry';
+import * as platformTelemetry from '../../platform/telemetry';
 import { waitForCondition } from '../../test/common';
 import { createMockedNotebookDocument } from '../../test/datascience/editor-integration/helpers';
 import { mockedVSCodeNamespaces } from '../../test/vscode-mock';
@@ -140,6 +141,17 @@ suite(`Import Tracker`, async () => {
                 };
             }
         } as any);
+        // Fork note: telemetry was removed in this fork (isTelemetryDisabled() is always true and
+        // sendTelemetryEvent() is a no-op), so the tracker would silently skip all import tracking.
+        // Stub the module-level functions to keep the parsing/hashing logic testable.
+        sinon.stub(platformTelemetry, 'isTelemetryDisabled').returns(false);
+        sinon.stub(platformTelemetry, 'sendTelemetryEvent').callsFake(
+            ((eventName: string, measures?: {}, properties?: {}) => {
+                Reporter.eventNames.push(eventName);
+                Reporter.properties.push(properties!);
+                Reporter.measures.push(measures!);
+            }) as any
+        );
         importTracker = new ImportTracker(disposables, 0);
         clock = fakeTimers.install();
         disposables.push(new Disposable(() => clock.uninstall()));

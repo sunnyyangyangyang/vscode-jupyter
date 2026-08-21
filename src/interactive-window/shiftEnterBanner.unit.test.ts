@@ -10,8 +10,7 @@ import {
     isTestExecution,
     isUnitTestExecution,
     setTestExecution,
-    setUnitTestExecution,
-    Telemetry
+    setUnitTestExecution
 } from '../platform/common/constants';
 import {
     IConfigurationService,
@@ -61,10 +60,8 @@ suite('Interactive Shift Enter Banner', () => {
 
         config.verifyAll();
 
-        expect(Reporter.eventNames).to.deep.equal([
-            Telemetry.ShiftEnterBannerShown,
-            Telemetry.EnableInteractiveShiftEnter
-        ]);
+        // Fork note: banner telemetry was removed in this fork — no events expected.
+        expect(Reporter.eventNames).to.deep.equal([]);
     });
 
     test("Shift Enter Banner don't check Jupyter when disabled", async () => {
@@ -89,10 +86,8 @@ suite('Interactive Shift Enter Banner', () => {
 
         config.verifyAll();
 
-        expect(Reporter.eventNames).to.deep.equal([
-            Telemetry.ShiftEnterBannerShown,
-            Telemetry.DisableInteractiveShiftEnter
-        ]);
+        // Fork note: banner telemetry was removed in this fork — no events expected.
+        expect(Reporter.eventNames).to.deep.equal([]);
     });
 });
 

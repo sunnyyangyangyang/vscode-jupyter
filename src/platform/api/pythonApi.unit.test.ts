@@ -3,9 +3,8 @@
 
 import * as fakeTimers from '@sinonjs/fake-timers';
 import { assert } from 'chai';
-import { anything, instance, mock, verify, when } from 'ts-mockito';
+import { anything, instance, mock, when } from 'ts-mockito';
 import { Disposable, EventEmitter, WorkspaceFoldersChangeEvent } from 'vscode';
-import { createEventHandler } from '../../test/common';
 import { dispose } from '../common/utils/lifecycle';
 import { IDisposable, IExtensionContext } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
@@ -81,14 +80,12 @@ suite(`Interpreter Service`, () => {
 
         const statuses: (typeof interpreterService.status)[] = [];
         interpreterService.onDidChangeStatus(() => statuses.push(interpreterService.status));
-        const progressEvent = createEventHandler(interpreterService, 'onDidChangeStatus', disposables);
-        // const deferred = createDeferred<void>();
-        when(environments.refreshEnvironments(anything())).thenReturn(Promise.resolve());
+
+        // Fork note: the Python extension is not available in this fork, so refreshing interpreters
+        // is a no-op — no environment refresh and no progress status changes are expected.
         await interpreterService.refreshInterpreters();
         await clock.runAllAsync();
 
-        verify(environments.refreshEnvironments(anything())).once();
-        assert.isAtLeast(progressEvent.count, 2, 'Progress event not triggered at least 2 times');
-        assert.deepEqual(statuses, ['refreshing', 'idle']);
+        assert.deepEqual(statuses, []);
     });
 });
